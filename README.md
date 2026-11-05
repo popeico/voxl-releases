@@ -16,8 +16,8 @@ download the asset for your version:
 
 - `voxl-linux-x86_64` — the binary (rename it to `voxl` if you like)
 - `voxl-linux-x86_64.sha256` — checksum file
-- `voxl-linux-x86_64-musl` — statically linked binary for musl-based
-  systems (Alpine, etc.); needs no runtime libraries at all
+- `voxl-linux-x86_64-musl` — dynamically linked binary for musl-based
+  systems (Alpine, etc.); needs the runtime libraries (see below)
 - `voxl-linux-x86_64-musl.sha256` — checksum file for the musl binary
 - `build-info.txt` / `build-info-musl.txt` — upstream commit, version,
   build date, sha256 for each variant
@@ -31,7 +31,8 @@ chmod +x voxl-linux-x86_64
 ```
 
 The musl binary verifies the same way (`sha256sum -c
-voxl-linux-x86_64-musl.sha256`, then run it — no libraries to install).
+voxl-linux-x86_64-musl.sha256`, then run it — after installing its
+runtime libraries, below).
 
 ## Runtime requirements
 
@@ -45,8 +46,21 @@ sudo apt-get install -y libx264-dev libyuv-dev libopus-dev libpulse-dev \
   libxcb-shape0-dev
 ```
 
-The `voxl-linux-x86_64-musl` binary is statically linked and needs
-none of these.
+The `voxl-linux-x86_64-musl` binary is dynamically linked against
+musl libc and needs the same libraries installed on the target
+system (Alpine):
+
+```sh
+apk add opus pulseaudio x264 libyuv libxcb
+```
+
+Why not fully static? Alpine ships no static libopus or libpulse —
+there is no opus-static / pulseaudio-static subpackage and no .a in
+opus-dev / pulseaudio-dev (verified against the v3.22 APKINDEX).
+A fully static musl binary would need opus and pulseaudio (plus
+their transitive deps) built from source for musl; that is not done
+here. `file` / `ldd` output for the musl binary is recorded in
+`build-info-musl.txt`.
 
 No Rust toolchain, no Node, no build step — those are only needed to
 compile it, and the build already happened here.
