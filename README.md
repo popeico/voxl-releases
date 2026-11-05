@@ -51,7 +51,7 @@ musl libc and needs the same libraries installed on the target
 system (Alpine):
 
 ```sh
-apk add opus pulseaudio x264 libyuv libxcb
+apk add opus pulseaudio x264-libs libyuv libxcb
 ```
 
 Why not fully static? Alpine ships no static libopus or libpulse —
