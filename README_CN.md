@@ -47,7 +47,7 @@ sudo apt-get install -y libx264-dev libyuv-dev libopus-dev libpulse-dev \
 上同样需要装这些库（Alpine）：
 
 ```sh
-apk add opus pulseaudio x264 libyuv libxcb
+apk add opus pulseaudio x264-libs libyuv libxcb
 ```
 
 为什么不是全静态？Alpine 没有提供静态版的 libopus / libpulse——
