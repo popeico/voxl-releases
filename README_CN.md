@@ -15,8 +15,8 @@ https://github.com/tembo/voxl
 
 - `voxl-linux-x86_64` —— 二进制文件（可改名为 `voxl`）
 - `voxl-linux-x86_64.sha256` —— 校验文件
-- `voxl-linux-x86_64-musl` —— 静态链接版，用于 musl 系统（Alpine
-  等），不需要装任何运行库
+- `voxl-linux-x86_64-musl` —— 动态链接版，用于 musl 系统（Alpine
+  等），需要装运行库（见下）
 - `voxl-linux-x86_64-musl.sha256` —— musl 版校验文件
 - `build-info.txt` / `build-info-musl.txt` —— 两个版本各自的上游
   commit、版本号、构建日期、sha256
@@ -30,7 +30,7 @@ chmod +x voxl-linux-x86_64
 ```
 
 musl 版校验方法相同（`sha256sum -c voxl-linux-x86_64-musl.sha256`，
-然后直接运行，不用装库）。
+先装好下面的运行库再运行）。
 
 ## 运行环境
 
@@ -43,7 +43,19 @@ sudo apt-get install -y libx264-dev libyuv-dev libopus-dev libpulse-dev \
   libxcb-shape0-dev
 ```
 
-`voxl-linux-x86_64-musl` 是静态链接版，这些库一个都不用装。
+`voxl-linux-x86_64-musl` 是针对 musl libc 动态链接的版本，目标系统
+上同样需要装这些库（Alpine）：
+
+```sh
+apk add opus pulseaudio x264 libyuv libxcb
+```
+
+为什么不是全静态？Alpine 没有提供静态版的 libopus / libpulse——
+既没有 opus-static / pulseaudio-static 子包，opus-dev /
+pulseaudio-dev 里也没有 .a（已对照 v3.22 APKINDEX 核实）。全静态
+的 musl 版需要从源码为 musl 编译 opus、pulseaudio 及其依赖，这里
+没有做。musl 版的 `file` / `ldd` 输出记录在 `build-info-musl.txt`
+中。
 
 不需要 Rust、Node，也不用编译——编译已经在这里完成。
 
