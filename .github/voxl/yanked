@@ -1,0 +1,3 @@
+# Withdrawn releases, one `TAG=REASON` line each. Blank lines and `#` lines are ignored.
+# To withdraw a release, add its line here and merge; the packslip-list workflow rebuilds the list.
+# Keep every withdrawal in each rebuild: one left out makes its release eligible again.
