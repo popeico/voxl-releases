@@ -1,0 +1,131 @@
+# Maintain the supplementary packslip release list (.well-known/packslip.json).
+#
+# Why a list exists at all: our release tags are dated
+# (voxl-0.3.5-20261115) and name no version under the packslip spec's tag
+# rules (the tag prefix is the tool name, not the repository name), so
+# tag-based discovery omits them and mise lists nothing. Each list entry
+# maps a dated tag to the version in its signed bundle. The list is
+# supplementary: it overrides only the releases it names.
+#
+# Ongoing commitment: the list expires after 30 days, so this workflow
+# re-signs it weekly on schedule, on every new release, and whenever the
+# .github/voxl/** control files change. Once a consumer accepts a list,
+# a missing or expired one is an error — do not delete the list.
+# The list signer is pinned separately from the release signer, so this
+# file may differ from packslip.yml.
+name: packslip-list
+
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: "0 6 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - ".github/voxl/**"
+  workflow_dispatch:
+
+concurrency:
+  group: packslip-list
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Commit the list to the default branch.
+      id-token: write # Sign the list with the workflow's identity.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: repo
+          sparse-checkout: |
+            .github/voxl
+            .well-known
+
+      - name: Record the new release tag
+        if: github.event_name == 'release'
+        run: |
+          set -euo pipefail
+          cd repo
+          mkdir -p .github/voxl
+          touch .github/voxl/listed .github/voxl/yanked .github/voxl/security
+          TAG="${{ github.event.release.tag_name }}"
+          grep -qx "$TAG" .github/voxl/listed || echo "$TAG" >> .github/voxl/listed
+
+      - name: Read the control files
+        id: control
+        run: |
+          set -euo pipefail
+          entries() {
+            local file="repo/.github/voxl/$1"
+            [ -f "$file" ] || { echo "$file is missing" >&2; exit 1; }
+            grep -Ev '^[[:space:]]*(#|$)' "$file" || [ $? -eq 1 ]
+          }
+          delimiter="voxl_$(openssl rand -hex 16)"
+          {
+            echo "listed<<$delimiter"
+            entries listed
+            echo "$delimiter"
+            echo "yank<<$delimiter"
+            entries yanked
+            echo "$delimiter"
+            echo "security<<$delimiter"
+            entries security
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+          # Latest = version parsed from the newest listed tag (last line).
+          LAST="$(entries listed | tail -n 1)"
+          VERSION="$(printf '%s' "$LAST" | sed -E 's/^[^0-9]*//; s/-[0-9]{8}$//')"
+          echo "latest=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "latest tag $LAST -> version $VERSION"
+
+      - name: Download the bundles the list names
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENTRIES: |
+            ${{ steps.control.outputs.listed }}
+            ${{ steps.control.outputs.yank }}
+            ${{ steps.control.outputs.security }}
+        run: |
+          set -euo pipefail
+          # The signing workflow may still be running when this workflow
+          # starts on the same release event; retry until every bundle
+          # is downloadable.
+          while IFS= read -r line; do
+            tag="${line%%=*}"
+            if [ -z "$tag" ] || [ -e "lists/$tag" ]; then continue; fi
+            for i in $(seq 1 20); do
+              if gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+                  --pattern packslip.sigstore.json --dir "lists/$tag"; then
+                break
+              fi
+              echo "bundle for $tag not ready (attempt $i/20)..."
+              sleep 30
+            done
+            [ -e "lists/$tag/packslip.sigstore.json" ] || { echo "bundle for $tag never appeared" >&2; exit 1; }
+          done <<< "$ENTRIES"
+
+      - uses: jdx/packslip/releases@e0340e0c1d10c90a434de2b90f3a1ba345923564 # v1.11.4
+        id: list
+        with:
+          project: github.com/popeico/voxl-releases
+          dir: lists
+          url-base: https://github.com/popeico/voxl-releases/releases/download
+          latest: ${{ steps.control.outputs.latest }}
+          yank: ${{ steps.control.outputs.yank }}
+          security: ${{ steps.control.outputs.security }}
+
+      - name: Commit the list
+        env:
+          LIST: ${{ steps.list.outputs.list }}
+        run: |
+          set -euo pipefail
+          mkdir -p repo/.well-known
+          cp "$LIST" repo/.well-known/packslip.json
+          cd repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .well-known/packslip.json .github/voxl/listed .github/voxl/yanked .github/voxl/security
+          git diff --cached --quiet && echo "list unchanged" || { git commit -m "chore: re-sign the release list"; git push; }
