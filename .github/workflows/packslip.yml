@@ -1,0 +1,71 @@
+# Sign voxl-releases releases with packslip (mise backend).
+#
+# The signing workflow lives in THIS repo, not in build-factory:
+# mise only accepts a release signed by a workflow run of the repo
+# the project name points to (github.com/popeico/voxl-releases).
+# It runs on release publication, which is on the release tag ref,
+# so every release shares one signer identity. Do not add a
+# workflow_dispatch trigger: a dispatched run signs from a branch
+# ref, a different signer that breaks continuity for the next release.
+name: packslip
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Upload packslip.sigstore.json to the release.
+      id-token: write # Keyless Sigstore signing.
+      attestations: write # Attest the downloaded files (action default).
+    steps:
+      - name: Parse semver from the release tag
+        id: version
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name }}"
+          # Tags are dated (voxl-0.3.5-20261114): strip the leading
+          # non-digit prefix and the trailing -YYYYMMDD date.
+          VERSION="$(printf '%s' "$TAG" | sed -E 's/^[^0-9]*//; s/-[0-9]{8}$//')"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "tag $TAG yields non-semver version $VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag $TAG -> version $VERSION"
+
+      - name: Wait for the release binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # The release is created already published, so this event can
+          # fire before the publisher finishes uploading assets. Poll
+          # until both binaries are present, then sign.
+          for i in $(seq 1 20); do
+            NAMES="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+            if printf '%s\n' "$NAMES" | grep -qx 'voxl-linux-x86_64' && \
+               printf '%s\n' "$NAMES" | grep -qx 'voxl-linux-x86_64-musl'; then
+              echo "both binaries present"
+              exit 0
+            fi
+            echo "waiting for binaries (attempt $i/20)..."
+            sleep 30
+          done
+          echo "binaries did not appear within 10 minutes" >&2
+          exit 1
+
+      # Exact asset names: they must not match SHA256SUMS, .sha256
+      # files, build-info files, or an earlier packslip.sigstore.json.
+      # Platforms need no override: the names give linux/x86_64
+      # (musl token on the musl file) and packslip reads the ELF
+      # binaries, so the glibc build records gnu and the musl build
+      # records musl; both are bare executables (format raw).
+      - uses: jdx/packslip@e0340e0c1d10c90a434de2b90f3a1ba345923564 # v1.11.4
+        with:
+          download: voxl-linux-x86_64 voxl-linux-x86_64-musl
+          bin: voxl
+          version: ${{ steps.version.outputs.version }}
