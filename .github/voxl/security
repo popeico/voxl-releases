@@ -1,0 +1,2 @@
+# Releases that fix a vulnerability, one tag per line. Blank lines and `#` lines are ignored.
+# To mark a security fix, add its tag here and merge; the packslip-list workflow rebuilds the list.
