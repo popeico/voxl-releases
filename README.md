@@ -109,3 +109,27 @@ DISPLAY=:1 ./voxl-linux-x86_64 --port=6901 \
 - Upstream ships no prebuilt binary (only the `.crate` source package),
   which is why these builds exist. If upstream starts publishing
   prebuilds, these builds stop.
+
+## Install with mise
+
+Releases are signed with [packslip](https://packslip.dev), so
+[mise](https://mise.jdx.dev) installs them with no extra setup:
+
+```sh
+mise use packslip:github.com/popeico/voxl-releases@0.3.5
+```
+
+That writes this line to `mise.toml`:
+
+```toml
+"packslip:github.com/popeico/voxl-releases" = "0.3.5"
+```
+
+The signer fingerprint for this release is
+`ps1_7fev5yvmlonnngel5jnurbtgzu` (verify with
+`packslip pin packslip.sigstore.json` on the release bundle).
+
+On musl hosts (Alpine) mise picks the musl build automatically. The
+glibc build needs the runtime libraries listed above, including
+`libx264.so.165` (x264 0.165), which Ubuntu 24.04 LTS does not ship —
+on 24.04 use the musl build or a newer distro.
