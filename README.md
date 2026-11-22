@@ -2,10 +2,10 @@ EN | [中文](README_CN.md)
 
 # voxl-releases
 
-Compiled builds of [voxl](https://github.com/tembo/voxl) for Linux x86_64.
+Compiled builds of [voxl](https://github.com/tembo/voxl) for Linux x86_64 and Windows x86_64.
 Download a binary here instead of installing Rust and building from source.
 
-voxl is a fast remote-desktop streamer: it serves an X11 display as H.264
+voxl is a fast remote-desktop streamer: it serves an X11 display (Linux) or a Windows desktop as H.264
 over a single WebSocket, and you watch it in a browser — no client to
 install. Upstream project (MIT): https://github.com/tembo/voxl
 
@@ -19,7 +19,10 @@ download the asset for your version:
 - `voxl-linux-x86_64-musl` — dynamically linked binary for musl-based
   systems (Alpine, etc.); needs the runtime libraries (see below)
 - `voxl-linux-x86_64-musl.sha256` — checksum file for the musl binary
-- `build-info.txt` / `build-info-musl.txt` — upstream commit, version,
+- `voxl-windows-x86_64.zip` — portable Windows build: `voxl.exe` + a
+  short README, no installer, unzip anywhere and run
+- `voxl-windows-x86_64.zip.sha256` — checksum file for the zip
+- `build-info.txt` / `build-info-musl.txt` / `build-info-windows.txt` — upstream commit, version,
   build date, sha256 for each variant
 
 Verify the download:
@@ -33,6 +36,13 @@ chmod +x voxl-linux-x86_64
 The musl binary verifies the same way (`sha256sum -c
 voxl-linux-x86_64-musl.sha256`, then run it — after installing its
 runtime libraries, below).
+
+On Windows, verify the zip with certutil and compare the hash with
+`voxl-windows-x86_64.zip.sha256`:
+
+```powershell
+certutil -hashfile voxl-windows-x86_64.zip SHA256
+```
 
 ## Runtime requirements
 
@@ -62,6 +72,11 @@ their transitive deps) built from source for musl; that is not done
 here. `file` / `ldd` output for the musl binary is recorded in
 `build-info-musl.txt`.
 
+The Windows build is portable: unzip `voxl-windows-x86_64.zip`
+anywhere, no installer, no admin rights. x264, libyuv and Opus are
+statically linked, so there is nothing else to install beyond the C
+runtime that ships with Windows 10+.
+
 No Rust toolchain, no Node, no build step — those are only needed to
 compile it, and the build already happened here.
 
@@ -77,6 +92,14 @@ It prints a link with a sign-in token — open it in a browser. Add
 `?stats` to the URL for an FPS / bitrate overlay. See upstream
 [README](https://github.com/tembo/voxl#readme) for all flags
 (`--title`, `--framerate`, `--enable-basic-auth`, clipboard, recording).
+
+On Windows, after unzipping:
+
+```powershell
+.\voxl.exe --port=6901
+```
+
+No `DISPLAY` needed — it streams the Windows desktop.
 
 Serving through a public hostname (reverse proxy / tunnel) needs both
 flags, or the browser WebSocket is refused:
@@ -98,6 +121,8 @@ DISPLAY=:1 ./voxl-linux-x86_64 --port=6901 \
   the session, so there is no audio. Video is unaffected.
 - **`error while loading shared libraries`:** a runtime library from the
   list above is missing — install it and retry.
+- **Windows SmartScreen blocks the first launch:** the binary is
+  unsigned. Click "More info", then "Run anyway".
 
 ## About these builds
 
@@ -129,7 +154,8 @@ The signer fingerprint for this release is
 `ps1_7fev5yvmlonnngel5jnurbtgzu` (verify with
 `packslip pin packslip.sigstore.json` on the release bundle).
 
-On musl hosts (Alpine) mise picks the musl build automatically. The
-glibc build needs the runtime libraries listed above, including
+On musl hosts (Alpine) mise picks the musl build automatically. On
+Windows hosts it picks the portable zip and installs it as `voxl.exe`.
+The glibc build needs the runtime libraries listed above, including
 `libx264.so.165` (x264 0.165), which Ubuntu 24.04 LTS does not ship —
 on 24.04 use the musl build or a newer distro.
