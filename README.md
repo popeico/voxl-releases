@@ -159,3 +159,16 @@ Windows hosts it picks the portable zip and installs it as `voxl.exe`.
 The glibc build needs the runtime libraries listed above, including
 `libx264.so.165` (x264 0.165), which Ubuntu 24.04 LTS does not ship —
 on 24.04 use the musl build or a newer distro.
+
+## Two channels
+
+Every release is built from one upstream version, but shipped on one of two channels:
+
+- **Stable** — the version is the upstream version exactly (`0.4.0`). This is the default: `mise latest` and a plain `mise install` resolve to the newest stable release. One stable entry per upstream version; a stable release is superseded only by an explicit trim.
+- **Experimental** — the version keeps the build date (`0.4.0-20261122`, and `.1`, `.2` for same-day rebuilds). Experimental releases are GitHub prereleases: hidden from `mise latest`, installable by exact version or with prereleases enabled:
+
+```sh
+mise install packslip:github.com/popeico/voxl-releases@0.4.0-20261122.1
+```
+
+For reproducibility, pin an exact version in `mise.toml` (or `mise.lock`) rather than tracking `latest`. The upstream version, build tag, and channel of every release are in its tag, its `build-info*.txt` files, and its release notes.
