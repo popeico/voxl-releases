@@ -26,10 +26,19 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${{ github.event.release.tag_name }}"
-          # Tags are dated (voxl-0.3.5-20261114): strip the leading
-          # non-digit prefix and the trailing -YYYYMMDD date.
-          VERSION="$(printf '%s' "$TAG" | sed -E 's/^[^0-9]*//; s/-[0-9]{8}$//')"
-          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+          PRERELEASE="${{ github.event.release.prerelease }}"
+          # Two channels (2026-11-22): a stable release carries the plain
+          # upstream version (strip the leading non-digit prefix and the
+          # trailing -YYYYMMDD date, and -rN if present); an experimental
+          # prerelease keeps the dated version (strip only the prefix).
+          # The channel is decided at dispatch/build time and baked into
+          # the signed bundle — never relabel after signing.
+          if [ "$PRERELEASE" = "true" ]; then
+            VERSION="$(printf '%s' "$TAG" | sed -E 's/^[^0-9]*//')"
+          else
+            VERSION="$(printf '%s' "$TAG" | sed -E 's/^[^0-9]*//; s/-[0-9]{8}(-r[0-9]+)?$//')"
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
             echo "tag $TAG yields non-semver version $VERSION" >&2
             exit 1
           fi
