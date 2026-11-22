@@ -56,6 +56,8 @@ jobs:
 
       - name: Read the control files
         id: control
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           entries() {
@@ -75,11 +77,29 @@ jobs:
             entries security
             echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
-          # Latest = version parsed from the newest listed tag (last line).
-          LAST="$(entries listed | tail -n 1)"
-          VERSION="$(printf '%s' "$LAST" | sed -E 's/^[^0-9]*//; s/-[0-9]{8}$//')"
-          echo "latest=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "latest tag $LAST -> version $VERSION"
+          # Latest = newest STABLE version only (two channels, 2026-11-22):
+          # experimental prereleases accumulate in the list but never
+          # become `latest`. Tag strings alone cannot tell them apart,
+          # so classify each listed tag via its release prerelease flag,
+          # newest first. If the list held no stable release at all,
+          # fall back to the newest tag rather than an empty latest.
+          LATEST=""
+          for tag in $(entries listed | tac); do
+            IS_PRE="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)"
+            if [ "$IS_PRE" != "true" ]; then
+              LATEST="$(printf '%s' "$tag" | sed -E 's/^[^0-9]*//; s/-[0-9]{8}(-r[0-9]+)?$//')"
+              echo "latest stable tag $tag -> version $LATEST"
+              break
+            fi
+            echo "skipping prerelease $tag for latest"
+          done
+          if [ -z "$LATEST" ]; then
+            LAST="$(entries listed | tail -n 1)"
+            LATEST="$(printf '%s' "$LAST" | sed -E 's/^[^0-9]*//; s/-[0-9]{8}(-r[0-9]+)?$//')"
+            echo "::warning::no stable release in the list; latest falls back to $LAST -> $LATEST"
+          fi
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "latest version $LATEST"
 
       - name: Download the bundles the list names
         env:
