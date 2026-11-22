@@ -123,3 +123,16 @@ DISPLAY=:1 ./voxl-linux-x86_64 --port=6901 \
   `.github/workflows/voxl.yml`）。本仓库只放 release 文件，没有源码镜像。
 - 上游不提供预编译二进制（只有 `.crate` 源码包），所以才有这些构建。
   上游一旦开始发布预编译版，这些构建就会停止。
+
+## 两个渠道
+
+每个 release 都由一个上游版本构建，但通过两个渠道之一发布：
+
+- **Stable（稳定版）**——版本号就是上游版本号（`0.4.0`）。这是默认渠道：`mise latest` 和直接 `mise install` 都解析到最新的稳定版。每个上游版本只有一个稳定版条目；稳定版只会被显式裁剪（trim）取代。
+- **Experimental（实验版）**——版本号保留构建日期（`0.4.0-20261122`，同一天多次构建再加 `.1`、`.2`）。实验版是 GitHub prerelease：不会出现在 `mise latest` 里，可按精确版本号安装，或开启 prerelease 后安装：
+
+```sh
+mise install packslip:github.com/popeico/voxl-releases@0.4.0-20261122.1
+```
+
+为了可复现，建议在 `mise.toml`（或 `mise.lock`）里钉精确版本号，而不是跟随 `latest`。每个 release 的上游版本、构建 tag 和渠道都写在它的 tag、`build-info*.txt` 文件和 release notes 里。
