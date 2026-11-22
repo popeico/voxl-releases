@@ -2,10 +2,10 @@
 
 # voxl-releases
 
-[voxl](https://github.com/tembo/voxl) 的 Linux x86_64 编译版。直接下载二进制，
+[voxl](https://github.com/tembo/voxl) 的 Linux x86_64 和 Windows x86_64 编译版。直接下载二进制，
 不用装 Rust、不用从源码编译。
 
-voxl 是一个快速远程桌面流工具：把 X11 显示器以 H.264 通过一条 WebSocket
+voxl 是一个快速远程桌面流工具：把 X11 显示器（Linux）或 Windows 桌面以 H.264 通过一条 WebSocket
 推到浏览器观看，不用装客户端。上游项目（MIT）：
 https://github.com/tembo/voxl
 
@@ -18,7 +18,10 @@ https://github.com/tembo/voxl
 - `voxl-linux-x86_64-musl` —— 动态链接版，用于 musl 系统（Alpine
   等），需要装运行库（见下）
 - `voxl-linux-x86_64-musl.sha256` —— musl 版校验文件
-- `build-info.txt` / `build-info-musl.txt` —— 两个版本各自的上游
+- `voxl-windows-x86_64.zip` —— Windows 绿色版：`voxl.exe` + 一份简短
+  说明，无需安装，解压即用
+- `voxl-windows-x86_64.zip.sha256` —— zip 校验文件
+- `build-info.txt` / `build-info-musl.txt` / `build-info-windows.txt` —— 三个版本各自的上游
   commit、版本号、构建日期、sha256
 
 校验下载：
@@ -31,6 +34,13 @@ chmod +x voxl-linux-x86_64
 
 musl 版校验方法相同（`sha256sum -c voxl-linux-x86_64-musl.sha256`，
 先装好下面的运行库再运行）。
+
+Windows 上用 certutil 校验 zip，对照 `voxl-windows-x86_64.zip.sha256`
+里的哈希：
+
+```powershell
+certutil -hashfile voxl-windows-x86_64.zip SHA256
+```
 
 ## 运行环境
 
@@ -57,6 +67,10 @@ pulseaudio-dev 里也没有 .a（已对照 v3.22 APKINDEX 核实）。全静态
 没有做。musl 版的 `file` / `ldd` 输出记录在 `build-info-musl.txt`
 中。
 
+Windows 版是绿色版：解压 `voxl-windows-x86_64.zip` 到任意位置即可，
+无需安装、无需管理员权限。x264、libyuv、Opus 均为静态链接，除
+Windows 10+ 自带的 C 运行时外不需要再装任何东西。
+
 不需要 Rust、Node，也不用编译——编译已经在这里完成。
 
 ## 快速开始
@@ -71,6 +85,14 @@ DISPLAY=:1 ./voxl-linux-x86_64 --port=6901
 可以看到帧率 / 码率。全部参数见上游
 [README](https://github.com/tembo/voxl#readme)
 （`--title`、`--framerate`、`--enable-basic-auth`、剪贴板、录制等）。
+
+Windows 上解压后：
+
+```powershell
+.\voxl.exe --port=6901
+```
+
+不需要 `DISPLAY`——直接推流 Windows 桌面。
 
 通过公网域名（反代 / 隧道）提供服务时，两个参数缺一不可，否则浏览器
 WebSocket 会被拒绝：
@@ -90,6 +112,8 @@ DISPLAY=:1 ./voxl-linux-x86_64 --port=6901 \
   所以没有声音，视频不受影响。
 - **`error while loading shared libraries`：** 上面列表里的某个运行库
   没装，装好再试。
+- **Windows 首次启动被 SmartScreen 拦截：** 二进制未签名。点“更多
+  信息”，再点“仍要运行”。
 
 ## 关于这些构建
 
