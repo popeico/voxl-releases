@@ -2,4 +2,4 @@
 # One tag per line, oldest first; the newest line sets the list's `latest`.
 # The packslip-list workflow appends each new release tag automatically.
 voxl-0.3.5-20261115
-voxl-0.4.0-20261121
+voxl-0.4.0-20261122
