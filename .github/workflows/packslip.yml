@@ -44,18 +44,19 @@ jobs:
           set -euo pipefail
           # The release is created already published, so this event can
           # fire before the publisher finishes uploading assets. Poll
-          # until both binaries are present, then sign.
+          # until all three assets are present, then sign.
           for i in $(seq 1 20); do
             NAMES="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
             if printf '%s\n' "$NAMES" | grep -qx 'voxl-linux-x86_64' && \
-               printf '%s\n' "$NAMES" | grep -qx 'voxl-linux-x86_64-musl'; then
-              echo "both binaries present"
+               printf '%s\n' "$NAMES" | grep -qx 'voxl-linux-x86_64-musl' && \
+               printf '%s\n' "$NAMES" | grep -qx 'voxl-windows-x86_64.zip'; then
+              echo "all three assets present"
               exit 0
             fi
-            echo "waiting for binaries (attempt $i/20)..."
+            echo "waiting for assets (attempt $i/20)..."
             sleep 30
           done
-          echo "binaries did not appear within 10 minutes" >&2
+          echo "assets did not appear within 10 minutes" >&2
           exit 1
 
       # Exact asset names: they must not match SHA256SUMS, .sha256
@@ -63,9 +64,12 @@ jobs:
       # Platforms need no override: the names give linux/x86_64
       # (musl token on the musl file) and packslip reads the ELF
       # binaries, so the glibc build records gnu and the musl build
-      # records musl; both are bare executables (format raw).
+      # records musl; both are bare executables (format raw). The
+      # Windows asset is a zip: packslip inspects the PE inside it
+      # and records windows/x86_64; `bin: voxl` installs it as
+      # voxl.exe on Windows.
       - uses: jdx/packslip@e0340e0c1d10c90a434de2b90f3a1ba345923564 # v1.11.4
         with:
-          download: voxl-linux-x86_64 voxl-linux-x86_64-musl
+          download: voxl-linux-x86_64 voxl-linux-x86_64-musl voxl-windows-x86_64.zip
           bin: voxl
           version: ${{ steps.version.outputs.version }}
